@@ -1039,7 +1039,7 @@ def home():
                 <label>Website Name (Optional)</label>
                 <input type="text" id="website_name" placeholder="e.g., amazon, shopify">
             </div>
-            <button id="exportBtn" class="btn-export">📤 Export to Google Drive</button>
+            <button id="exportBtn" class="btn-export">📤 Download the Report</button>
         </div>
         
         <div id="result"></div>
@@ -1148,7 +1148,7 @@ document.getElementById('exportBtn').addEventListener('click', async function() 
 
             const exportBtn = document.getElementById('exportBtn');
             exportBtn.disabled = true;
-            exportBtn.textContent = '⏳ Exporting to Google Drive...';
+            exportBtn.textContent = '⏳ Creating the report...';
 
             const websiteName = document.getElementById('website_name').value || null;
 
@@ -1170,11 +1170,7 @@ document.getElementById('exportBtn').addEventListener('click', async function() 
                     exportResult.innerHTML = `
                         <h3>✅ Export Successful!</h3>
                         <p><strong>Filename:</strong> ${result.filename}</p>
-                        <p>${result.message}</p>
                         <div style="margin-top: 15px;">
-                            <a href="${result.gdrive_view_link}" target="_blank" class="gdrive-link">
-                                📄 View in Google Drive
-                            </a>
                             ${result.gdrive_download_link ? 
                                 `<a href="${result.gdrive_download_link}" target="_blank" class="gdrive-link">
                                     ⬇️ Download Document
@@ -1203,7 +1199,7 @@ document.getElementById('exportBtn').addEventListener('click', async function() 
                 document.getElementById('result').insertBefore(errorResult, document.getElementById('result').firstChild);
             } finally {
                 exportBtn.disabled = false;
-                exportBtn.textContent = '📤 Export to Google Drive';
+                exportBtn.textContent = '📤 Download the Report';
             }
         });
                         
@@ -1514,4 +1510,4 @@ document.getElementById('exportBtn').addEventListener('click', async function() 
  )
 
 if __name__ == "__main__":
-    uvicorn.run("main1:app", reload=True)
+    uvicorn.run("main_gdrive:app", reload=True)
