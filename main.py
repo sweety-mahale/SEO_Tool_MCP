@@ -26,11 +26,8 @@ if not api_key:
 client = Groq(api_key=api_key)
 
 # ===================== FASTMCP SETUP =====================
+mcp = FastMCP("AI_SEO_Analyzer_with_GDrive")
 
-mcp = FastMCP("SEO_Analyzer_MCP_Server")
-
-
-# -------Helper Functions-------
 
 def normalize_url(url: str) -> str:
     """Ensure URL has a scheme (http/https)."""
@@ -326,7 +323,11 @@ async def analyze_seo(
     og_description = soup.find("meta", {"property": "og:description"})
     og_image = soup.find("meta", {"property": "og:image"})
 
+    twitter_card = soup.find("meta", {"name": "twitter:card"})
+    twitter_title = soup.find("meta", {"name": "twitter:title"})
+        
     has_open_graph = bool(og_title or og_description or og_image)
+    has_twitter_cards = bool(twitter_card or twitter_title)
 
     # Mobile Optimization
     viewport_tag = soup.find("meta", {"name": "viewport"})
@@ -340,25 +341,92 @@ async def analyze_seo(
     suggestions: List[str] = []
 
     if not title:
-        issues.append("❌ Missing <title> tag")
-        suggestions.append("Add a descriptive title tag (50-60 characters)")
+            issues.append("❌ Missing <title> tag")
+            suggestions.append("Add a descriptive title tag (50-60 characters) with your primary keyword")
     elif title_length < 30:
-        issues.append("⚠️ Title too short")
-        suggestions.append(f"Expand to 50-60 characters (current: {title_length})")
+        issues.append("⚠️ Title too short (< 30 characters)")
+        suggestions.append(f"Expand your title to 50-60 characters. Current: {title_length} chars")
     elif title_length > 60:
-        issues.append("⚠️ Title too long")
-        suggestions.append(f"Shorten to 50-60 characters (current: {title_length})")
-
+        issues.append("⚠️ Title too long (> 60 characters)")
+        suggestions.append(f"Shorten your title to 50-60 characters. Current: {title_length} chars")
+    
+    if primary_keyword and not keyword_in_title:
+        issues.append("⚠️ Primary keyword not in title")
+        suggestions.append(f"Include '{primary_keyword}' in your title tag for better relevance")
+    
     if not meta_description:
         issues.append("❌ Missing meta description")
-        suggestions.append("Add meta description (140-160 characters)")
-
+        suggestions.append("Add a compelling meta description (140-160 characters) with your primary keyword")
+    elif meta_desc_length < 120:
+        issues.append("⚠️ Meta description too short (< 120 characters)")
+        suggestions.append(f"Expand meta description to 140-160 characters. Current: {meta_desc_length} chars")
+    elif meta_desc_length > 160:
+        issues.append("⚠️ Meta description too long (> 160 characters)")
+        suggestions.append(f"Shorten meta description to 140-160 characters. Current: {meta_desc_length} chars")
+    
     if len(h1s) == 0:
         issues.append("❌ No <h1> tag found")
-        suggestions.append("Add H1 tag with primary keyword")
+        suggestions.append("Add exactly one H1 tag with your primary keyword for proper content hierarchy")
     elif len(h1s) > 1:
         issues.append("⚠️ Multiple <h1> tags found")
-        suggestions.append(f"Use only one H1 tag (found {len(h1s)})")
+        suggestions.append(f"Use only one H1 tag. You currently have {len(h1s)} H1 tags")
+    
+    if primary_keyword and not keyword_in_h1:
+        issues.append("⚠️ Primary keyword not in H1")
+        suggestions.append(f"Include '{primary_keyword}' in your H1 heading for better SEO")
+    
+    if primary_keyword:
+        if keyword_density == 0:
+            issues.append("❌ Primary keyword not found in content")
+            suggestions.append(f"Add '{primary_keyword}' naturally throughout your content (aim for 1-3% density)")
+        elif keyword_density < 0.5:
+            issues.append("⚠️ Keyword density too low")
+            suggestions.append(f"Increase usage of '{primary_keyword}' (current: {keyword_density}%, target: 1-3%)")
+        elif keyword_density > 3.5:
+            issues.append("⚠️ Keyword density too high (keyword stuffing risk)")
+            suggestions.append(f"Reduce usage of '{primary_keyword}' (current: {keyword_density}%, target: 1-3%)")
+    
+    if word_count < 300:
+        issues.append("❌ Very low word count (< 300 words)")
+        suggestions.append(f"Increase content to at least 1000 words for better rankings. Current: {word_count} words")
+    elif word_count < 1000:
+        issues.append("⚠️ Low word count (< 1000 words)")
+        suggestions.append(f"Expand content to 1500-2000 words for comprehensive coverage. Current: {word_count} words")
+    
+    if content_quality_metrics['unique_word_ratio'] < 40:
+        issues.append("⚠️ Low vocabulary richness")
+        suggestions.append("Use more diverse vocabulary to improve content quality and readability")
+    
+    if readability_metrics['score'] < 50:
+        issues.append("⚠️ Content is difficult to read")
+        suggestions.append(f"Simplify language and use shorter sentences. Current readability: {readability_metrics['grade_level']}")
+    elif readability_metrics['avg_sentence_length'] > 25:
+        issues.append("⚠️ Sentences too long")
+        suggestions.append(f"Break long sentences. Average: {readability_metrics['avg_sentence_length']} words per sentence")
+    
+    if images_without_alt > 0:
+        issues.append(f"⚠️ {images_without_alt} images missing alt text")
+        suggestions.append(f"Add descriptive alt text to all {images_without_alt} images for accessibility and SEO")
+    
+    if not has_viewport:
+        issues.append("❌ Missing viewport meta tag")
+        suggestions.append("Add viewport meta tag for mobile responsiveness")
+    
+    if not canonical_url or canonical_url == "Not set":
+        issues.append("⚠️ No canonical URL specified")
+        suggestions.append("Add canonical URL to prevent duplicate content issues")
+    
+    if not has_schema:
+        issues.append("⚠️ No structured data found")
+        suggestions.append("Implement Schema.org markup for rich snippets")
+    
+    if not has_open_graph:
+        issues.append("⚠️ Missing Open Graph tags")
+        suggestions.append("Add OG tags for better social media sharing")
+    
+    if keyword_gap_analysis and keyword_gap_analysis['missing_keywords']:
+        issues.append(f"⚠️ Missing {len(keyword_gap_analysis['missing_keywords'])} competitor keywords")
+        suggestions.append(f"Consider targeting these keywords: {', '.join(keyword_gap_analysis['missing_keywords'][:5])}")
 
     # Business Goals Section
     business_goals_info = ""
@@ -378,31 +446,43 @@ async def analyze_seo(
         keyword_gap_info = f"""
 🎯 COMPETITOR ANALYSIS:
 • Missing Keywords: {keyword_gap_analysis['missing_keywords'][:10]}
+• Common Keywords: {keyword_gap_analysis['common_keywords'][:10]}
+• Unique Keywords: {keyword_gap_analysis['unique_keywords'][:10]}
 • Gap: {keyword_gap_analysis['gap_percentage']}%
 """
 
     prompt = f"""
-You are an expert SEO consultant. Analyze and provide recommendations in JSON format.
+You are an expert SEO consultant. Analyze this webpage and provide actionable recommendations aligned with the business goals.
 
 URL: {url}
-Primary Keyword: {primary_keyword or "Not specified"}
+Primary Keyword: {primary_keyword if primary_keyword else "Not specified"}
 
 {business_goals_info}
 
-METRICS:
+META INFORMATION:
 • Title: "{title}" ({title_length} chars)
-• Meta: "{meta_description}" ({meta_desc_length} chars)
+• Meta Description: "{meta_description}" ({meta_desc_length} chars)
+
+KEYWORD ANALYSIS:
 • Keyword Density: {keyword_density}%
+• Keyword in Title: {"Yes" if keyword_in_title else "No"}
+• Keyword in Meta: {"Yes" if keyword_in_meta else "No"}
+• Keyword in H1: {"Yes" if keyword_in_h1 else "No"}
+• Relevance Score: {keyword_relevance_score}/100
+
+CONTENT METRICS:
 • Word Count: {word_count}
-• Readability: {readability_metrics['score']}/100
-• Quality: {content_quality_metrics['score']}/100
+• Content Quality Score: {content_quality_metrics['score']}/100
+• Vocabulary Richness: {content_quality_metrics['vocabulary_richness']}
+• Readability Score: {readability_metrics['score']}/100
+• Grade Level: {readability_metrics['grade_level']}
 
 {keyword_gap_info}
 
-ISSUES: {len(issues)}
+ISSUES FOUND ({len(issues)}):
 {chr(10).join(issues)}
 
-Provide recommendations in this JSON format:
+Based on the business goals and SEO metrics provided, provide expert recommendations in JSON format that align with their objectives:
 {{
     "seo_score": 75,
     "score_breakdown": {{
@@ -411,19 +491,26 @@ Provide recommendations in this JSON format:
         "readability": 80,
         "technical_seo": 75
     }},
-    "score_explanation": "Brief explanation",
+    "score_explanation": "Brief explanation tailored to business goals",
     "business_goal_alignment": {{
         "alignment_score": 65,
         "strengths": ["strength1", "strength2", "strength3"],
-        "gaps": ["gap1", "gap2"],
-        "recommendations": ["rec1", "rec2"]
+        "gaps": ["gap1", "gap2", "gap3"],
+        "recommendations": ["rec1", "rec2", "rec3"]
     }},
+    "keyword_optimization": {{
+        "current_density": {keyword_density},
+        "ideal_density": "1.5-2.5%",
+        "recommendations": ["tip1", "tip2", "tip3"]
+    }},
+    "content_quality_improvements": ["improvement1", "improvement2", "improvement3"],
+    "readability_improvements": ["fix1", "fix2", "fix3"],
+    "competitor_insights": ["insight1", "insight2", "insight3"],
     "title_suggestions": ["title1", "title2", "title3"],
     "meta_description_suggestions": ["meta1", "meta2", "meta3"],
-    "content_improvements": ["imp1", "imp2", "imp3"],
     "technical_fixes": ["fix1", "fix2", "fix3"],
     "conversion_optimization": ["cro1", "cro2", "cro3"],
-    "priority_actions": ["CRITICAL: action1", "HIGH: action2"]
+    "priority_actions": ["CRITICAL: action1", "HIGH: action2", "MEDIUM: action3"]
 }}
 """
 
@@ -483,6 +570,8 @@ Provide recommendations in this JSON format:
             "readability": {
                 "score": readability_metrics["score"],
                 "grade_level": readability_metrics["grade_level"],
+                "avg_sentence_length": readability_metrics['avg_sentence_length'],
+                "avg_word_length": readability_metrics['avg_word_length']
             },
             "competitor_analysis": keyword_gap_analysis,
             "images": {
@@ -550,7 +639,7 @@ async def export_seo_to_google_drive(
             'error': str(e),
             'message': f"Failed to export to Google Drive: {str(e)}"
         }
-    
+
 @mcp.tool()
 async def list_gdrive_folders() -> Dict:
     """
@@ -576,7 +665,7 @@ async def list_gdrive_folders() -> Dict:
             'success': False,
             'error': str(e)
         }
-    
+
 @mcp.tool()
 async def create_gdrive_folder(folder_name: str, parent_folder_id: Optional[str] = None) -> Dict:
     """
@@ -607,7 +696,6 @@ async def create_gdrive_folder(folder_name: str, parent_folder_id: Optional[str]
             'success': False,
             'error': str(e)
         }
-    
 
 # ===================== FASTAPI SETUP =====================
 app = FastAPI(title="SEO Analyzer")
@@ -632,8 +720,8 @@ async def analyze(req: AnalyzeRequest) -> Dict:
 
 @app.post("/export-to-drive")
 async def export_to_drive(req: Request) -> Dict:
-   """Export the last SEO analysis to Google Drive"""
-   try:
+    """Export the last SEO analysis to Google Drive"""
+    try:
         data = await req.json()
         seo_data = data.get('seo_data')
         website_name = data.get('website_name')
@@ -645,9 +733,8 @@ async def export_to_drive(req: Request) -> Dict:
         exporter = GoogleDriveSEOExporter()
         result = exporter.create_and_upload_seo_report(seo_data, website_name, folder_id)
         return result
-   except Exception as e:
+    except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to export: {str(e)}")
-
 
 @app.get("/gdrive-folders")
 async def get_folders():
@@ -952,7 +1039,7 @@ def home():
                 <label>Website Name (Optional)</label>
                 <input type="text" id="website_name" placeholder="e.g., amazon, shopify">
             </div>
-            <button id="exportBtn" class="btn-export">📤 Export to Google Drive</button>
+            <button id="exportBtn" class="btn-export">📤 Download the Report</button>
         </div>
         
         <div id="result"></div>
@@ -1061,7 +1148,7 @@ document.getElementById('exportBtn').addEventListener('click', async function() 
 
             const exportBtn = document.getElementById('exportBtn');
             exportBtn.disabled = true;
-            exportBtn.textContent = '⏳ Exporting to Google Drive...';
+            exportBtn.textContent = '⏳ Creating the report...';
 
             const websiteName = document.getElementById('website_name').value || null;
 
@@ -1083,11 +1170,7 @@ document.getElementById('exportBtn').addEventListener('click', async function() 
                     exportResult.innerHTML = `
                         <h3>✅ Export Successful!</h3>
                         <p><strong>Filename:</strong> ${result.filename}</p>
-                        <p>${result.message}</p>
                         <div style="margin-top: 15px;">
-                            <a href="${result.gdrive_view_link}" target="_blank" class="gdrive-link">
-                                📄 View in Google Drive
-                            </a>
                             ${result.gdrive_download_link ? 
                                 `<a href="${result.gdrive_download_link}" target="_blank" class="gdrive-link">
                                     ⬇️ Download Document
@@ -1116,7 +1199,7 @@ document.getElementById('exportBtn').addEventListener('click', async function() 
                 document.getElementById('result').insertBefore(errorResult, document.getElementById('result').firstChild);
             } finally {
                 exportBtn.disabled = false;
-                exportBtn.textContent = '📤 Export to Google Drive';
+                exportBtn.textContent = '📤 Download the Report';
             }
         });
                         
@@ -1427,4 +1510,5 @@ document.getElementById('exportBtn').addEventListener('click', async function() 
  )
 
 if __name__ == "__main__":
-    uvicorn.run("mcp_server_web:app", reload=True)
+    uvicorn.run("main:app", reload=True)
+
