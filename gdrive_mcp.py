@@ -412,6 +412,9 @@ class GoogleDriveSEOExporter:
                 'file_url': upload_result.get('web_view_link'),
                 'edit_url': upload_result.get('web_view_link'),
                 'download_url': upload_result.get('web_content_link'),
+                'gdrive_file_id': upload_result.get('file_id'),
+                'gdrive_view_link': upload_result.get('web_view_link'),
+                'gdrive_download_link': upload_result.get('webContentLink') or upload_result.get('web_content_link'),
                 'message': f"SEO report '{filename}' successfully uploaded to Google Drive"
 }
         except FileNotFoundError as e:
